@@ -1,22 +1,18 @@
-version: '3.8'
-
 services:
   # PostgreSQL база данных
   postgres:
     image: postgres:15-alpine
-    container_name: linguatrack_postgres
     environment:
       POSTGRES_DB: linguatrack
       POSTGRES_USER: linguatrack_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password_123}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     ports:
       - "5432:5432"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U linguatrack_user -d linguatrack"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -24,15 +20,16 @@ services:
   # Redis для кэширования и Celery
   redis:
     image: redis:7-alpine
-    container_name: linguatrack_redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password_123}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_password_123}
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
     volumes:
       - redis_data:/data
     ports:
       - "6379:6379"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -42,43 +39,47 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
-    container_name: linguatrack_web
     environment:
       - DEBUG=False
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=postgresql://linguatrack_user:${POSTGRES_PASSWORD:-secure_password_123}@postgres:5432/linguatrack
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-postgresql://linguatrack_user:secure_password_123@postgres:5432/linguatrack}
       - YANDEX_SPEECHKIT_API_KEY=${YANDEX_SPEECHKIT_API_KEY}
       - YANDEX_SPEECHKIT_FOLDER_ID=${YANDEX_SPEECHKIT_FOLDER_ID}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - AUDIO_CACHE_TTL=${AUDIO_CACHE_TTL:-604800}
-      - ALLOWED_HOSTS=tarmo.opencove.ru,localhost,127.0.0.1
-      - CSRF_TRUSTED_ORIGINS=https://tarmo.opencove.ru
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-tarmo.opencove.ru,localhost,127.0.0.1}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://tarmo.opencove.ru}
+      - TIME_ZONE=${TIME_ZONE:-UTC}
     volumes:
       - media_data:/app/media
-      - static_data:/app/static
+      - static_data:/app/staticfiles
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     restart: unless-stopped
     command: >
       sh -c "python manage.py collectstatic --noinput &&
              python manage.py migrate &&
              gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 120 lingua_track.wsgi:application"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
 
   # Celery worker
   celery_worker:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
-    container_name: linguatrack_celery_worker
     environment:
       - DEBUG=False
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=postgresql://linguatrack_user:${POSTGRES_PASSWORD:-secure_password_123}@postgres:5432/linguatrack
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-postgresql://linguatrack_user:secure_password_123@postgres:5432/linguatrack}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:redis_password_123@redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:redis_password_123@redis:6379/0}
+      - TELEGRAM_BOT_NOTIFY_URL=${TELEGRAM_BOT_NOTIFY_URL:-http://bot:8080/notify}
       - YANDEX_SPEECHKIT_API_KEY=${YANDEX_SPEECHKIT_API_KEY}
       - YANDEX_SPEECHKIT_FOLDER_ID=${YANDEX_SPEECHKIT_FOLDER_ID}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
@@ -98,12 +99,12 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
-    container_name: linguatrack_celery_beat
     environment:
       - DEBUG=False
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=postgresql://linguatrack_user:${POSTGRES_PASSWORD:-secure_password_123}@postgres:5432/linguatrack
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-postgresql://linguatrack_user:secure_password_123@postgres:5432/linguatrack}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:redis_password_123@redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:redis_password_123@redis:6379/0}
       - YANDEX_SPEECHKIT_API_KEY=${YANDEX_SPEECHKIT_API_KEY}
       - YANDEX_SPEECHKIT_FOLDER_ID=${YANDEX_SPEECHKIT_FOLDER_ID}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
@@ -123,22 +124,13 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.bot
-    container_name: linguatrack_bot
     environment:
-      - DEBUG=False
-      - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=postgresql://linguatrack_user:${POSTGRES_PASSWORD:-secure_password_123}@postgres:5432/linguatrack
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
-      - YANDEX_SPEECHKIT_API_KEY=${YANDEX_SPEECHKIT_API_KEY}
-      - YANDEX_SPEECHKIT_FOLDER_ID=${YANDEX_SPEECHKIT_FOLDER_ID}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - AUDIO_CACHE_TTL=${AUDIO_CACHE_TTL:-604800}
+      - DJANGO_API_URL=${DJANGO_API_URL:-http://web:8000}
     volumes:
       - media_data:/app/media
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
+      web:
         condition: service_healthy
     restart: unless-stopped
     ports:
@@ -147,21 +139,21 @@ services:
   # Nginx для проксирования и статических файлов
   nginx:
     image: nginx:alpine
-    container_name: linguatrack_nginx
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
-      - static_data:/app/static:ro
+      - static_data:/app/staticfiles:ro
       - media_data:/app/media:ro
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
   media_data:
-  static_data: 
+  static_data:

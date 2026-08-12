@@ -12,17 +12,17 @@ load_dotenv()
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
 # URL Django API
-DJANGO_API_URL = 'http://127.0.0.1:8000/api'
+DJANGO_API_URL = os.getenv('DJANGO_API_URL', 'http://127.0.0.1:8000').rstrip('/')
 
 # Endpoints API
 API_ENDPOINTS = {
-    'bind': f'{DJANGO_API_URL}/telegram/bind/',
-    'cards': f'{DJANGO_API_URL}/cards/',
-    'today': f'{DJANGO_API_URL}/today/',
-    'progress': f'{DJANGO_API_URL}/progress/',
-    'tts': f'{DJANGO_API_URL}/tts/',
-    'test': f'{DJANGO_API_URL}/test/',
-    'test_multiple_choice': f'{DJANGO_API_URL}/test/multiple_choice/',
+    'bind': f'{DJANGO_API_URL}/api/telegram/bind/',
+    'cards': f'{DJANGO_API_URL}/api/cards/',
+    'today': f'{DJANGO_API_URL}/api/today/',
+    'progress': f'{DJANGO_API_URL}/api/progress/',
+    'tts': f'{DJANGO_API_URL}/api/tts/',
+    'test': f'{DJANGO_API_URL}/api/test/',
+    'test_multiple_choice': f'{DJANGO_API_URL}/api/test/multiple_choice/',
 }
 
 # Настройки бота
@@ -59,4 +59,4 @@ MESSAGES = {
     'no_today': 'Сегодня нет карточек для повторения.',
     'word_not_found': 'Слово не найдено в твоих карточках.',
     'error': 'Произошла ошибка. Попробуй позже.',
-} 
+}
