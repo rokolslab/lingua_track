@@ -14,6 +14,16 @@ BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 # URL Django API
 DJANGO_API_URL = os.getenv('DJANGO_API_URL', 'http://127.0.0.1:8000').rstrip('/')
 
+# Внутренние service tokens (fallback предназначен только для development)
+BOT_API_TOKEN = (
+    os.getenv('BOT_API_TOKEN', '').strip()
+    or 'development-only-bot-api-token-do-not-use-in-production'
+)
+NOTIFY_API_TOKEN = (
+    os.getenv('NOTIFY_API_TOKEN', '').strip()
+    or 'development-only-notify-api-token-do-not-use-in-production'
+)
+
 # Endpoints API
 API_ENDPOINTS = {
     'bind': f'{DJANGO_API_URL}/api/telegram/bind/',

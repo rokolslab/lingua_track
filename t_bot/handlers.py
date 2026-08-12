@@ -10,9 +10,10 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from typing import Dict, List
 import io
+from secrets import compare_digest
 
 from .api_client import DjangoAPIClient
-from .config import MESSAGES
+from .config import MESSAGES, NOTIFY_API_TOKEN
 
 router = Router()
 api_client = DjangoAPIClient()
@@ -23,6 +24,20 @@ try:
     import asyncio
 
     async def notify_handler(request):
+        authorization = request.headers.get('Authorization', '')
+        scheme, separator, provided_token = authorization.partition(' ')
+        is_authorized = (
+            separator
+            and scheme.lower() == 'bearer'
+            and bool(provided_token)
+            and compare_digest(provided_token, NOTIFY_API_TOKEN)
+        )
+        if not is_authorized:
+            return web.json_response(
+                {'error': 'Unauthorized'},
+                status=401,
+                headers={'WWW-Authenticate': 'Bearer'},
+            )
         try:
             data = await request.json()
             telegram_id = data.get('telegram_id')
@@ -375,4 +390,4 @@ async def handle_unknown(message: Message):
     # Удаляю обработку /start <token> отсюда, теперь она в cmd_start
     await message.answer(
         "Не понимаю эту команду. Используй /help для списка доступных команд."
-    ) 
+    )

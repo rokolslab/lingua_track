@@ -5,11 +5,9 @@ services:
     environment:
       POSTGRES_DB: linguatrack
       POSTGRES_USER: linguatrack_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password_123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
@@ -21,12 +19,10 @@ services:
   redis:
     image: redis:7-alpine
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_password_123}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
     command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
@@ -42,10 +38,10 @@ services:
     environment:
       - DEBUG=False
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://linguatrack_user:secure_password_123@postgres:5432/linguatrack}
+      - BOT_API_TOKEN=${BOT_API_TOKEN:?BOT_API_TOKEN must be set}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be set}
       - YANDEX_SPEECHKIT_API_KEY=${YANDEX_SPEECHKIT_API_KEY}
       - YANDEX_SPEECHKIT_FOLDER_ID=${YANDEX_SPEECHKIT_FOLDER_ID}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - AUDIO_CACHE_TTL=${AUDIO_CACHE_TTL:-604800}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-tarmo.opencove.ru,localhost,127.0.0.1}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://tarmo.opencove.ru}
@@ -76,13 +72,13 @@ services:
     environment:
       - DEBUG=False
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://linguatrack_user:secure_password_123@postgres:5432/linguatrack}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:redis_password_123@redis:6379/0}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:redis_password_123@redis:6379/0}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be set}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:?CELERY_BROKER_URL must be set}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:?CELERY_RESULT_BACKEND must be set}
       - TELEGRAM_BOT_NOTIFY_URL=${TELEGRAM_BOT_NOTIFY_URL:-http://bot:8080/notify}
+      - NOTIFY_API_TOKEN=${NOTIFY_API_TOKEN:?NOTIFY_API_TOKEN must be set}
       - YANDEX_SPEECHKIT_API_KEY=${YANDEX_SPEECHKIT_API_KEY}
       - YANDEX_SPEECHKIT_FOLDER_ID=${YANDEX_SPEECHKIT_FOLDER_ID}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - AUDIO_CACHE_TTL=${AUDIO_CACHE_TTL:-604800}
     volumes:
       - media_data:/app/media
@@ -102,12 +98,11 @@ services:
     environment:
       - DEBUG=False
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://linguatrack_user:secure_password_123@postgres:5432/linguatrack}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:redis_password_123@redis:6379/0}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:redis_password_123@redis:6379/0}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be set}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:?CELERY_BROKER_URL must be set}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:?CELERY_RESULT_BACKEND must be set}
       - YANDEX_SPEECHKIT_API_KEY=${YANDEX_SPEECHKIT_API_KEY}
       - YANDEX_SPEECHKIT_FOLDER_ID=${YANDEX_SPEECHKIT_FOLDER_ID}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - AUDIO_CACHE_TTL=${AUDIO_CACHE_TTL:-604800}
     volumes:
       - media_data:/app/media
@@ -127,14 +122,14 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - DJANGO_API_URL=${DJANGO_API_URL:-http://web:8000}
+      - BOT_API_TOKEN=${BOT_API_TOKEN:?BOT_API_TOKEN must be set}
+      - NOTIFY_API_TOKEN=${NOTIFY_API_TOKEN:?NOTIFY_API_TOKEN must be set}
     volumes:
       - media_data:/app/media
     depends_on:
       web:
         condition: service_healthy
     restart: unless-stopped
-    ports:
-      - "8080:8080"
 
   # Nginx для проксирования и статических файлов
   nginx:

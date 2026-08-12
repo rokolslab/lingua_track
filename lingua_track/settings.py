@@ -46,6 +46,16 @@ SECRET_KEY = (
     or 'django-insecure-development-only-key-do-not-use-in-production'
 )
 
+_configured_bot_api_token = os.getenv('BOT_API_TOKEN', '').strip()
+BOT_API_TOKEN = (
+    _configured_bot_api_token
+    or (
+        'development-only-bot-api-token-do-not-use-in-production'
+        if DEBUG
+        else ''
+    )
+)
+
 ALLOWED_HOSTS = _get_list('ALLOWED_HOSTS', ('localhost', '127.0.0.1', '[::1]'))
 CSRF_TRUSTED_ORIGINS = _get_list('CSRF_TRUSTED_ORIGINS')
 
