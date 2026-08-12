@@ -1,26 +1,53 @@
-"""
-Django settings for lingua_track project.
-
-- Основные настройки Django.
-- Подключение приложений: users, cards, core.
-- Настройки шаблонов, базы данных, статики, локали, безопасности.
-- Использовать только для разработки (DEBUG=True).
-"""
-
-from pathlib import Path
 import os
+from pathlib import Path
 
+import dj_database_url
 from celery.schedules import crontab
+from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env', override=False)
+
+
+def _get_bool(name, default):
+    """Read a boolean environment variable or fail on an ambiguous value."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+
+    normalized = value.strip().lower()
+    if normalized in {'1', 'true', 'yes', 'on'}:
+        return True
+    if normalized in {'0', 'false', 'no', 'off'}:
+        return False
+    raise ImproperlyConfigured(
+        f'{name} must be one of: true, false, 1, 0, yes, no, on, off.'
+    )
+
+
+def _get_list(name, default=()):
+    """Read a comma-separated environment variable, ignoring empty items."""
+    value = os.getenv(name)
+    if value is None:
+        return list(default)
+    return [item.strip() for item in value.split(',') if item.strip()]
+
 
 # --- Безопасность ---
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure--jji(6a%s)yenlr05m-+ci5x%--mbl)k$d(^=#6^fx7gs-@_v^'
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-ALLOWED_HOSTS = []
+DEBUG = _get_bool('DEBUG', True)
+
+_configured_secret_key = os.getenv('SECRET_KEY', '').strip()
+if not DEBUG and not _configured_secret_key:
+    raise ImproperlyConfigured('SECRET_KEY must be set when DEBUG=False.')
+SECRET_KEY = (
+    _configured_secret_key
+    or 'django-insecure-development-only-key-do-not-use-in-production'
+)
+
+ALLOWED_HOSTS = _get_list('ALLOWED_HOSTS', ('localhost', '127.0.0.1', '[::1]'))
+CSRF_TRUSTED_ORIGINS = _get_list('CSRF_TRUSTED_ORIGINS')
 
 # --- Приложения ---
 INSTALLED_APPS = [
@@ -68,12 +95,16 @@ TEMPLATES = [
 WSGI_APPLICATION = 'lingua_track.wsgi.application'
 
 # --- База данных ---
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+_database_url = os.getenv('DATABASE_URL', '').strip()
+if _database_url:
+    DATABASES = {'default': dj_database_url.parse(_database_url)}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
 
 # --- Валидация паролей ---
 AUTH_PASSWORD_VALIDATORS = [
@@ -95,13 +126,20 @@ AUTH_USER_MODEL = 'users.User'
 
 # --- Локализация ---
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = os.getenv('TIME_ZONE', 'UTC')
 USE_I18N = True
 USE_TZ = True
 
 # --- Статика ---
-STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+_project_static_dir = BASE_DIR / 'static'
+STATICFILES_DIRS = [_project_static_dir] if _project_static_dir.is_dir() else []
+
+# --- Медиа ---
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # --- Primary key ---
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
