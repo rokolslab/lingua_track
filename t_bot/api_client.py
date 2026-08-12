@@ -11,7 +11,7 @@ import logging
 from typing import Tuple, List, Dict, Optional, Any
 from urllib.parse import urljoin
 
-from .config import DJANGO_API_URL
+from .config import BOT_API_TOKEN, DJANGO_API_URL
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,11 @@ class DjangoAPIClient:
         значение успешности запроса, data - данные ответа или сообщение об ошибке.
     """
     
-    def __init__(self, base_url: Optional[str] = None):
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        api_token: Optional[str] = None,
+    ):
         """
         Инициализация API клиента.
         
@@ -46,9 +50,11 @@ class DjangoAPIClient:
         )
         self.base_url = configured_url.rstrip('/')
         self.session = requests.Session()
+        configured_token = api_token if api_token is not None else BOT_API_TOKEN
         
         # Настройка сессии для лучшей производительности
         self.session.headers.update({
+            'Authorization': f'Bearer {configured_token}',
             'Content-Type': 'application/json',
             'User-Agent': 'LinguaTrack-Bot/1.0'
         })

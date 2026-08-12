@@ -16,6 +16,7 @@ SETTINGS_ENVIRONMENT = {
     'CSRF_TRUSTED_ORIGINS',
     'DATABASE_URL',
     'TIME_ZONE',
+    'BOT_API_TOKEN',
 }
 
 
@@ -48,6 +49,7 @@ spec.loader.exec_module(settings)
 print(json.dumps({
     'debug': settings.DEBUG,
     'secret_key': settings.SECRET_KEY,
+    'bot_api_token': settings.BOT_API_TOKEN,
     'allowed_hosts': settings.ALLOWED_HOSTS,
     'csrf_trusted_origins': settings.CSRF_TRUSTED_ORIGINS,
     'time_zone': settings.TIME_ZONE,
@@ -81,6 +83,7 @@ def test_development_defaults_are_local_and_use_sqlite(isolated_settings):
 
     assert settings['debug'] is True
     assert settings['secret_key'].startswith('django-insecure-development-only')
+    assert settings['bot_api_token'].startswith('development-only-bot-api-token')
     assert settings['allowed_hosts'] == ['localhost', '127.0.0.1', '[::1]']
     assert settings['csrf_trusted_origins'] == []
     assert settings['time_zone'] == 'UTC'
@@ -98,6 +101,7 @@ def test_debug_accepts_false_aliases(isolated_settings, value):
     settings = read_settings(isolated_settings, {
         'DEBUG': value,
         'SECRET_KEY': 'dummy-test-only-secret-not-for-production',
+        'BOT_API_TOKEN': 'dummy-test-only-bot-api-token',
     })
     assert settings['debug'] is False
 
@@ -139,9 +143,29 @@ def test_production_reads_secret_key(isolated_settings):
     settings = read_settings(isolated_settings, {
         'DEBUG': 'False',
         'SECRET_KEY': 'dummy-test-only-secret-not-for-production',
+        'BOT_API_TOKEN': 'dummy-test-only-bot-api-token',
     })
 
     assert settings['secret_key'] == 'dummy-test-only-secret-not-for-production'
+
+
+def test_production_without_bot_api_token_is_fail_closed(isolated_settings):
+    settings = read_settings(isolated_settings, {
+        'DEBUG': 'False',
+        'SECRET_KEY': 'dummy-test-only-secret-not-for-production',
+    })
+
+    assert settings['bot_api_token'] == ''
+
+
+def test_production_reads_bot_api_token(isolated_settings):
+    settings = read_settings(isolated_settings, {
+        'DEBUG': 'False',
+        'SECRET_KEY': 'dummy-test-only-secret-not-for-production',
+        'BOT_API_TOKEN': 'dummy-test-only-bot-api-token',
+    })
+
+    assert settings['bot_api_token'] == 'dummy-test-only-bot-api-token'
 
 
 def test_host_and_csrf_lists_are_trimmed(isolated_settings):
