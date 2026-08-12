@@ -1,5 +1,5 @@
 # Многоэтапная сборка для оптимизации размера
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Установка системных зависимостей для сборки
 RUN apt-get update && apt-get install -y \
@@ -28,7 +28,7 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Создание пользователя для безопасности
-RUN groupadd -r django && useradd -r -g django django
+RUN groupadd -r django && useradd -r -m -g django django
 
 # Создание рабочей директории
 WORKDIR /app
@@ -37,7 +37,7 @@ WORKDIR /app
 COPY . .
 
 # Создание директорий для медиа и статических файлов
-RUN mkdir -p /app/media/audio /app/static && \
+RUN mkdir -p /app/media/audio /app/staticfiles && \
     chown -R django:django /app
 
 # Переключение на пользователя django
@@ -47,4 +47,4 @@ USER django
 EXPOSE 8000
 
 # Команда запуска
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "lingua_track.wsgi:application"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "lingua_track.wsgi:application"]

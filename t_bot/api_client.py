@@ -11,6 +11,8 @@ import logging
 from typing import Tuple, List, Dict, Optional, Any
 from urllib.parse import urljoin
 
+from .config import DJANGO_API_URL
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,14 +32,19 @@ class DjangoAPIClient:
         значение успешности запроса, data - данные ответа или сообщение об ошибке.
     """
     
-    def __init__(self, base_url: str = 'http://127.0.0.1:8000'):
+    def __init__(self, base_url: Optional[str] = None):
         """
         Инициализация API клиента.
         
         Args:
             base_url: Базовый URL Django-приложения.
         """
-        self.base_url = base_url.rstrip('/')
+        configured_url = (
+            base_url
+            if base_url is not None
+            else DJANGO_API_URL
+        )
+        self.base_url = configured_url.rstrip('/')
         self.session = requests.Session()
         
         # Настройка сессии для лучшей производительности
@@ -298,4 +305,4 @@ class DjangoAPIClient:
     def __del__(self):
         """Закрывает сессию при удалении объекта."""
         if hasattr(self, 'session'):
-            self.session.close() 
+            self.session.close()
